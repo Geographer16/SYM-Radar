@@ -92,36 +92,6 @@ const Analysis = (() => {
   }
 
   /**
-   * Zamana göre lokasyon akışı: her lokasyonun İLK okutma zamanını baz alarak
-   * kronolojik sırayla listeler. Birden fazla kullanıcı aynı lokasyonu
-   * saymışsa (nadir ama mümkün), o lokasyon için baskın kullanıcı (en çok
-   * okutma yapan) rengiyle işaretlenir.
-   */
-  function buildLocationTimeline(records) {
-    const grouped = groupByLocation(records);
-    const entries = [];
-
-    grouped.forEach((list, locationCode) => {
-      const userCounts = new Map();
-      list.forEach(r => userCounts.set(r.userCode, (userCounts.get(r.userCode) || 0) + 1));
-      const dominantUser = Array.from(userCounts.entries()).sort((a, b) => b[1] - a[1])[0][0];
-
-      entries.push({
-        locationCode,
-        firstScan: list[0].timestamp,
-        lastScan: list[list.length - 1].timestamp,
-        count: list.length,
-        userCode: dominantUser,
-        color: getUserColor(dominantUser),
-      });
-    });
-
-    entries.sort((a, b) => a.firstScan - b.firstScan);
-    entries.forEach((e, idx) => { e.visitOrder = idx + 1; });
-    return entries;
-  }
-
-  /**
    * Lokasyon bazlı okutma hızı: (okutma sayısı - 1) / (son-ilk okutma
    * arasındaki saniye). Tek okutmalı lokasyonlarda hız hesaplanamaz (null).
    * Her satıra, o lokasyonu sayan baskın kullanıcının kodu ve rengi eklenir.
@@ -156,194 +126,43 @@ const Analysis = (() => {
   }
 
   /**
-   * Lokasyon hızlarını histogram bucket'larına dönüştürür: x ekseni sabit
-   * sayıda hız aralığı (0-0.5, 0.5-1, 1-1.5 ürün/sn gibi), y ekseni o
-   * aralığa düşen lokasyon sayısıdır. Yüzlerce lokasyon olsa bile grafik
-   * sabit sayıda bar ile okunabilir kalır.
+   * Genel ortalama okutma hızı — SADECE lokasyon içi sürelere göre hesaplanır.
    *
-   * Her bucket, kullanıcı bazlı kırılımını da taşır (stacked bar için):
-   * bucket.byUser = [{ userCode, color, count }, ...]
+   * Kayıtlar önce lokasyona göre gruplanır; her lokasyonun kendi süresi
+   * (o lokasyondaki ilk ve son okutma arasındaki fark) ve okutma sayısı
+   * toplanır. Lokasyonlar arası geçiş/yürüme/mola süresi bu toplama hiç
+   * dahil edilmez — çünkü zaten farklı lokasyonlara ait kayıtlar arasında
+   * fark alınmıyor. Böylece keyfi bir zaman eşiğine (ör. "10 saniyeden
+   * uzun boşluklar mola sayılsın") ihtiyaç kalmaz.
    *
-   * Hız hesaplanamayan (tek okutmalı) lokasyonlar ayrı bir "Tek okutma"
-   * bucket'ında toplanır, sayısal aralıkların dışında tutulur.
-   *
-   * @param {object[]} locationSpeeds - computeLocationSpeeds() çıktısı
-   * @param {number} bucketSize - her aralığın genişliği (ürün/sn), varsayılan 0.25
-   */
-  function buildLocationSpeedHistogram(locationSpeeds, bucketSize = 0.25) {
-    const withSpeed = locationSpeeds.filter(l => l.itemsPerSecond !== null);
-    const singleScan = locationSpeeds.filter(l => l.itemsPerSecond === null);
-
-    if (withSpeed.length === 0) {
-      return {
-        buckets: [],
-        singleScanCount: singleScan.length,
-        bucketSize,
-      };
-    }
-
-    const maxSpeed = Math.max(...withSpeed.map(l => l.itemsPerSecond));
-    const bucketCount = Math.max(1, Math.ceil((maxSpeed + 0.0001) / bucketSize));
-
-    // Bucket iskeletini oluştur
-    const buckets = Array.from({ length: bucketCount }, (_, i) => {
-      const from = i * bucketSize;
-      const to = from + bucketSize;
-      return {
-        from,
-        to,
-        label: `${from.toFixed(2)}–${to.toFixed(2)}`,
-        total: 0,
-        byUser: new Map(), // userCode -> count (geçici, sonra diziye çevrilecek)
-      };
-    });
-
-    withSpeed.forEach(l => {
-      let idx = Math.floor(l.itemsPerSecond / bucketSize);
-      if (idx >= bucketCount) idx = bucketCount - 1; // üst sınır güvenliği
-      const bucket = buckets[idx];
-      bucket.total += 1;
-      bucket.byUser.set(l.userCode, (bucket.byUser.get(l.userCode) || 0) + 1);
-    });
-
-    // Map'leri diziye çevir, rengi ekle
-    const finalBuckets = buckets.map(b => ({
-      from: b.from,
-      to: b.to,
-      label: b.label,
-      total: b.total,
-      byUser: Array.from(b.byUser.entries()).map(([userCode, count]) => ({
-        userCode, count, color: getUserColor(userCode),
-      })),
-    }));
-
-    return {
-      buckets: finalBuckets,
-      singleScanCount: singleScan.length,
-      bucketSize,
-    };
-  }
-
-  /**
-   * Genel ortalama okutma hızı — iki farklı bakış açısıyla:
-   *
-   * - itemsPerSecond: ilk okutmadan son okutmaya kadar geçen TÜM süreye göre
-   *   (lokasyonlar arası yürüme/bekleme dahil).
-   * - activeItemsPerSecond: sadece ardışık okutmalar arasındaki süre 10
-   *   saniyeyi AŞMADIĞI durumlar toplanarak hesaplanır (10sn+ boşluklar
-   *   "lokasyon değişti/mola verildi" kabul edilip hariç tutulur).
+   * itemsPerSecond: toplam (okutma sayısı - lokasyon sayısı) / toplam
+   * lokasyon-içi süre. Tek okutmalı lokasyonlar süre/hıza katkı vermez
+   * (bkz. computeLocationSpeeds ile aynı kural).
    */
   function computeOverallSpeed(records) {
     if (records.length < 2) {
-      return { itemsPerSecond: 0, totalSeconds: 0, activeItemsPerSecond: 0, activeSeconds: 0 };
+      return { itemsPerSecond: 0 };
     }
-    const sorted = [...records].sort((a, b) => a.timestamp - b.timestamp);
-    const totalSeconds = (sorted[sorted.length - 1].timestamp - sorted[0].timestamp) / 1000;
-    const itemsPerSecond = totalSeconds > 0 ? (records.length - 1) / totalSeconds : 0;
 
-    const GAP_THRESHOLD_SEC = 10;
-    let activeSeconds = 0;
-    let activeCount = 0;
-    for (let i = 1; i < sorted.length; i++) {
-      const gap = (sorted[i].timestamp - sorted[i - 1].timestamp) / 1000;
-      if (gap <= GAP_THRESHOLD_SEC) {
-        activeSeconds += gap;
-        activeCount++;
+    const locationSpeeds = computeLocationSpeeds(records);
+
+    let totalActiveSeconds = 0;
+    let totalActiveCount = 0;
+    locationSpeeds.forEach(l => {
+      if (l.itemsPerSecond !== null) {
+        totalActiveSeconds += l.durationSec;
+        totalActiveCount += l.count - 1;
       }
-    }
-    const activeItemsPerSecond = activeSeconds > 0 ? activeCount / activeSeconds : 0;
-
-    return { itemsPerSecond, totalSeconds, activeItemsPerSecond, activeSeconds };
-  }
-
-  /**
-   * Zaman içindeki hız trendini hesaplar: ardışık okutmalar arasındaki
-   * saniye farkından anlık hız (1 / delta) türetilir, ardından pencere
-   * ortalaması (moving average) ile düzeltilir. Belirgin artış/azalış
-   * bölgelerini basit bir eşik kuralıyla işaretler.
-   *
-   * @param {object[]} records - tek bir seri için kayıtlar (genel veya tek kullanıcı)
-   * @param {number} windowSize - hareketli ortalama pencere genişliği
-   */
-  function computeSpeedTrend(records, windowSize = 5) {
-    const sorted = [...records].sort((a, b) => a.timestamp - b.timestamp);
-    const points = [];
-
-    for (let i = 1; i < sorted.length; i++) {
-      const deltaSec = (sorted[i].timestamp - sorted[i - 1].timestamp) / 1000;
-      const instSpeed = deltaSec > 0 ? Math.min(1 / deltaSec, 10) : 10;
-      points.push({
-        index: i,
-        timestamp: sorted[i].timestamp,
-        instantSpeed: instSpeed,
-      });
-    }
-
-    const smoothed = points.map((p, idx) => {
-      const start = Math.max(0, idx - windowSize + 1);
-      const slice = points.slice(start, idx + 1);
-      const avg = slice.reduce((sum, s) => sum + s.instantSpeed, 0) / slice.length;
-      return { ...p, smoothedSpeed: avg };
     });
 
-    const flags = [];
-    const flagWindow = Math.max(windowSize * 2, 8);
-    for (let i = flagWindow; i < smoothed.length; i += flagWindow) {
-      const prevSlice = smoothed.slice(i - flagWindow, i - flagWindow / 2);
-      const currSlice = smoothed.slice(i - flagWindow / 2, i);
-      if (!prevSlice.length || !currSlice.length) continue;
+    const itemsPerSecond = totalActiveSeconds > 0 ? totalActiveCount / totalActiveSeconds : 0;
 
-      const prevAvg = prevSlice.reduce((s, p) => s + p.smoothedSpeed, 0) / prevSlice.length;
-      const currAvg = currSlice.reduce((s, p) => s + p.smoothedSpeed, 0) / currSlice.length;
-      if (prevAvg === 0) continue;
-
-      const change = (currAvg - prevAvg) / prevAvg;
-      if (Math.abs(change) >= 0.4) {
-        flags.push({
-          atIndex: i,
-          timestamp: smoothed[i].timestamp,
-          direction: change > 0 ? 'rise' : 'fall',
-          changePercent: Math.round(change * 100),
-        });
-      }
-    }
-
-    return { points: smoothed, flags };
-  }
-
-  /**
-   * Kullanıcı bazlı hız trend serileri: her kullanıcı için ayrı bir
-   * computeSpeedTrend sonucu, rengiyle birlikte. Multi-line grafikte
-   * kullanılır.
-   */
-  function computeSpeedTrendByUser(records) {
-    const grouped = groupByUser(records);
-    const series = [];
-    grouped.forEach((list, userCode) => {
-      if (list.length < 2) return; // trend hesaplamak için en az 2 okutma gerekir
-      const trend = computeSpeedTrend(list);
-      series.push({ userCode, color: getUserColor(userCode), ...trend });
-    });
-    return series.sort((a, b) => a.userCode.localeCompare(b.userCode));
-  }
-
-  /**
-   * Kullanıcı bazlı lokasyon timeline'ı: her kullanıcının kendi ziyaret
-   * ettiği lokasyonları, kendi kronolojik sırasıyla döndürür.
-   */
-  function buildTimelineByUser(records) {
-    const grouped = groupByUser(records);
-    const series = [];
-    grouped.forEach((list, userCode) => {
-      const timeline = buildLocationTimeline(list);
-      series.push({ userCode, color: getUserColor(userCode), entries: timeline });
-    });
-    return series.sort((a, b) => a.userCode.localeCompare(b.userCode));
+    return { itemsPerSecond };
   }
 
   /**
    * Kullanıcı bazlı özet istatistikler: lokasyon sayısı, okutma sayısı,
-   * aktif hız — kullanıcı karşılaştırma tablosu/kartları için.
+   * lokasyon-içi ortalama hız — kullanıcı karşılaştırma tablosu için.
    */
   function summarizeUserStats(records) {
     const grouped = groupByUser(records);
@@ -356,10 +175,84 @@ const Analysis = (() => {
         color: getUserColor(userCode),
         recordCount: list.length,
         locationCount,
-        activeItemsPerSecond: speed.activeItemsPerSecond,
+        itemsPerSecond: speed.itemsPerSecond,
       });
     });
     return stats.sort((a, b) => b.recordCount - a.recordCount);
+  }
+
+  /**
+   * Her kullanıcı için TEK bir en ekstrem bulgu döndürür — ya kendi genel
+   * hızının ortalamadan sapması, ya da saydığı lokasyonlardan birinin
+   * ortalamadan sapması; hangisi daha büyükse o seçilir. Amaç: "Dikkat
+   * çeken noktalar" listesinin kullanıcı sayısıyla orantılı, taranabilir
+   * kalması — her kullanıcı için onlarca satır yerine en çarpıcı tek satır.
+   *
+   * @param {object[]} userStats - summarizeUserStats() çıktısı
+   * @param {object[]} locationSpeeds - computeLocationSpeeds() çıktısı
+   */
+  function detectAnomalies(userStats, locationSpeeds, threshold = 0.3) {
+    const usersWithSpeed = userStats.filter(u => u.itemsPerSecond > 0);
+    if (usersWithSpeed.length < 2) return [];
+
+    const userAvg = usersWithSpeed.reduce((s, u) => s + u.itemsPerSecond, 0) / usersWithSpeed.length;
+
+    // Lokasyonları kullanıcıya göre grupla, her lokasyon için ortalamadan
+    // sapma oranını hesapla (genel lokasyon ortalamasına göre).
+    const locsWithSpeed = locationSpeeds.filter(l => l.itemsPerSecond !== null && l.itemsPerSecond > 0);
+    const locAvg = locsWithSpeed.length > 0
+      ? locsWithSpeed.reduce((s, l) => s + l.itemsPerSecond, 0) / locsWithSpeed.length
+      : 0;
+
+    const locsByUser = new Map();
+    locsWithSpeed.forEach(l => {
+      if (!locsByUser.has(l.userCode)) locsByUser.set(l.userCode, []);
+      locsByUser.get(l.userCode).push(l);
+    });
+
+    const results = [];
+
+    usersWithSpeed.forEach(u => {
+      // Aday 1: kullanıcının genel hızının, kullanıcı ortalamasından sapması
+      const userDiff = userAvg > 0 ? (u.itemsPerSecond - userAvg) / userAvg : 0;
+      let best = {
+        type: 'user-speed',
+        userCode: u.userCode,
+        color: u.color,
+        direction: userDiff >= 0 ? 'fast' : 'slow',
+        changePercent: Math.round(userDiff * 100),
+        magnitude: Math.abs(userDiff),
+      };
+
+      // Aday 2: bu kullanıcının en ekstrem lokasyonu, genel lokasyon
+      // ortalamasından sapması. Sadece daha çarpıcıysa (magnitude daha
+      // büyükse) aday 1'in yerini alır.
+      const userLocs = locsByUser.get(u.userCode) || [];
+      if (locAvg > 0 && userLocs.length > 0) {
+        let mostExtreme = null;
+        userLocs.forEach(l => {
+          const diff = (l.itemsPerSecond - locAvg) / locAvg;
+          if (!mostExtreme || Math.abs(diff) > Math.abs(mostExtreme.diff)) {
+            mostExtreme = { locationCode: l.locationCode, diff };
+          }
+        });
+        if (mostExtreme && Math.abs(mostExtreme.diff) > best.magnitude) {
+          best = {
+            type: 'location-speed',
+            userCode: u.userCode,
+            color: u.color,
+            locationCode: mostExtreme.locationCode,
+            direction: mostExtreme.diff >= 0 ? 'fast' : 'slow',
+            changePercent: Math.round(mostExtreme.diff * 100),
+            magnitude: Math.abs(mostExtreme.diff),
+          };
+        }
+      }
+
+      if (best.magnitude >= threshold) results.push(best);
+    });
+
+    return results.sort((a, b) => b.magnitude - a.magnitude);
   }
 
   /**
@@ -373,17 +266,19 @@ const Analysis = (() => {
       users: summarizeUsers(records),
       userStats: summarizeUserStats(records),
 
-      timeline: buildLocationTimeline(records),
-      timelineByUser: buildTimelineByUser(records),
-
       locationSpeeds: computeLocationSpeeds(records),
-      locationSpeedHistogram: buildLocationSpeedHistogram(computeLocationSpeeds(records)),
 
       overallSpeed: computeOverallSpeed(records),
-
-      speedTrend: computeSpeedTrend(records),
-      speedTrendByUser: computeSpeedTrendByUser(records),
     };
+  }
+
+  /**
+   * runAllAnalyses çıktısını alıp anomali tespitini de ekleyen sarmalayıcı.
+   * Kullanıcı başına en fazla bir bulgu döner (bkz. detectAnomalies).
+   */
+  function withAnomalies(results) {
+    results.anomalies = detectAnomalies(results.userStats, results.locationSpeeds);
+    return results;
   }
 
   return {
@@ -394,14 +289,11 @@ const Analysis = (() => {
     countLocations,
     summarizeUsers,
     summarizeUserStats,
-    buildLocationTimeline,
-    buildTimelineByUser,
     computeLocationSpeeds,
-    buildLocationSpeedHistogram,
     computeOverallSpeed,
-    computeSpeedTrend,
-    computeSpeedTrendByUser,
+    detectAnomalies,
     runAllAnalyses,
+    withAnomalies,
   };
 
 })();

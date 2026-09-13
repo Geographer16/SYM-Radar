@@ -9,12 +9,53 @@
   --paper: #F7FAF9;        /* sayfa zemini */
   --surface: #FFFFFF;      /* kart/tablo zemini */
   --line: #D8E6E1;         /* kenarlık */
-  --amber: #C97A1F;        /* tek dikkat rengi — uyarı/anomali */
+  --amber: #C97A1F;        /* tek dikkat rengi — uyarı/anomali, grafik dolgusu */
   --amber-soft: #FBEBD6;
   --danger: #B4472F;
   --danger-soft: #F9E4DE;
+  --teal-100-hover: #C9E6DA; /* tablo başlığı hover zemini (aydınlık) */
+  --amber-text: #8F5216;    /* amber-soft zemin üstünde metin — WCAG AA (≥4.5:1) için --amber'dan daha koyu */
+  --danger-text: #963823;   /* danger-soft zemin üstünde metin — WCAG AA (≥4.5:1) için --danger'dan daha koyu */
+  --btn-primary-bg: var(--teal-600); /* aydınlıkta --teal-600 zaten beyaz metinle yeterli kontrast veriyor */
   --radius-sm: 6px;
   --radius-md: 12px;
+}
+
+/* ---------- Karanlık mod ----------
+   Tüm renkler CSS değişkeni olduğu için sadece kök değerleri değiştirmek
+   yeterli; aşağıdaki hiçbir kural renk kullanan selector'lara dokunmuyor.
+   Kontrast WCAG AA hedefiyle seçildi (metin/zemin oranı en az ~4.5:1).
+
+   NOT: --teal-900 aydınlık modda "koyu renk" olduğu için hem zemin
+   (header, tablo başlığı arka planı) hem de metin rengi olarak
+   kullanılıyordu — orada sorun yoktu çünkü koyu metin/açık zemin uyumluydu.
+   Karanlık modda ise --teal-900 hâlâ koyu bir renk (zeminler için doğru)
+   ama aynı değişken metin rengi olarak da kullanıldığında koyu zemin
+   üstünde koyu metin ortaya çıkıp okunmaz hale geliyordu. Bunu ayırmak
+   için --teal-900-text adında ayrı bir "vurgu metin" değişkeni eklendi;
+   zeminler yine --teal-900 kullanır, metinler --teal-900-text kullanır. */
+:root {
+  --teal-900-text: var(--teal-900);
+}
+:root[data-theme="dark"] {
+  --ink: #EAF3F0;            /* açık metin */
+  --ink-soft: #A9C2BB;       /* ikincil metin, karanlıkta hâlâ okunur tonda */
+  --teal-900: #0B2523;       /* header zemini, en koyu */
+  --teal-900-text: #7FD9C4;  /* koyu zeminler üstünde kullanılan vurgu metni — açık teal */
+  --teal-600: #3FB39C;       /* aksiyon rengi, koyu zeminde daha parlak */
+  --teal-500: #57C7AE;
+  --teal-100: #163832;       /* şerit/soft zemin — koyu ama ayırt edilir */
+  --paper: #0E1C1A;          /* sayfa zemini */
+  --surface: #152B27;        /* kart/tablo zemini */
+  --line: #24443D;           /* kenarlık */
+  --amber: #E3A24B;          /* karanlıkta okunabilirlik için biraz açık */
+  --amber-soft: #3A2C16;
+  --danger: #E38070;
+  --danger-soft: #3A1E19;
+  --teal-100-hover: #204A42; /* tablo başlığı hover zemini (karanlık) */
+  --amber-text: var(--amber);   /* karanlıkta amber zaten soft zemin üstünde yeterli kontrasta sahip */
+  --danger-text: var(--danger); /* karanlıkta danger zaten soft zemin üstünde yeterli kontrasta sahip */
+  --btn-primary-bg: #146B5C;     /* dolgu buton zemini — karanlıkta --teal-600 üstü beyaz metin yetersiz kontrast verdiği için ayrı, daha koyu bir zemin */
 }
 
 * { box-sizing: border-box; }
@@ -28,6 +69,11 @@ body {
   color: var(--ink);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
 }
 
 h1, h2 {
@@ -46,6 +92,11 @@ h1, h2 {
 .header-inner {
   max-width: 980px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .brand {
@@ -53,6 +104,40 @@ h1, h2 {
   align-items: center;
   gap: 0.9rem;
 }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: "Inter", sans-serif;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(255,255,255,0.16);
+}
+
+.icon-btn svg {
+  flex-shrink: 0;
+}
+
+.icon-btn.clear-btn { display: none; }
+.icon-btn.clear-btn.visible { display: inline-flex; }
 
 .brand-mark {
   width: 38px;
@@ -100,6 +185,112 @@ h1, h2 {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+.upload-row {
+  display: flex;
+  flex-direction: row-reverse; /* dosya listesi solda, drop-zone sağda */
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.upload-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.file-list-panel {
+  flex: 0 0 240px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 320px;
+}
+
+.file-list-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--teal-900-text);
+  margin: 0;
+}
+
+.file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow-y: auto;
+}
+
+.file-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.file-list-item .file-item-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.file-list-item .file-item-name {
+  color: var(--ink);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-list-item .file-item-meta {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.file-remove-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--danger-text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.file-remove-btn:hover {
+  background: var(--danger-soft);
+}
+
+@media (max-width: 720px) {
+  .upload-row {
+    flex-direction: column;
+  }
+  .file-list-panel {
+    flex: 1 1 auto;
+    max-height: 200px;
+  }
 }
 
 .drop-zone {
@@ -152,13 +343,6 @@ h1, h2 {
   text-underline-offset: 2px;
 }
 
-.file-info {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--ink-soft);
-  min-height: 1.1em;
-}
-
 /* ---------- Status ---------- */
 
 .status-box {
@@ -168,9 +352,9 @@ h1, h2 {
   font-weight: 500;
 }
 
-.status-box.info    { background: var(--teal-100); color: var(--teal-900); }
-.status-box.success { background: var(--teal-100); color: var(--teal-900); }
-.status-box.error   { background: var(--danger-soft); color: var(--danger); }
+.status-box.info    { background: var(--teal-100); color: var(--teal-900-text); }
+.status-box.success { background: var(--teal-100); color: var(--teal-900-text); }
+.status-box.error   { background: var(--danger-soft); color: var(--danger-text); }
 
 /* ---------- Counter strip ---------- */
 
@@ -198,7 +382,7 @@ h1, h2 {
   font-family: "Space Grotesk", sans-serif;
   font-size: 2rem;
   font-weight: 700;
-  color: var(--teal-900);
+  color: var(--teal-900-text);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -214,12 +398,6 @@ h1, h2 {
   .counter-cell:nth-child(1), .counter-cell:nth-child(2) { border-bottom: 1px solid var(--line); }
 }
 
-.speed-note {
-  margin: -0.9rem 0 0;
-  font-size: 0.82rem;
-  color: var(--ink-soft);
-}
-
 /* ---------- Analysis blocks ---------- */
 
 .analysis-block {
@@ -231,75 +409,13 @@ h1, h2 {
 .block-heading h2 {
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--teal-900);
+  color: var(--teal-900-text);
 }
 
 .block-heading p {
   margin: 0.25rem 0 0;
   font-size: 0.86rem;
   color: var(--ink-soft);
-}
-
-/* ---------- User chips ---------- */
-
-.user-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.user-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.9rem;
-}
-
-.user-chip .chip-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.user-chip .chip-code {
-  font-family: "Space Grotesk", sans-serif;
-  font-weight: 600;
-  color: var(--teal-900);
-  font-size: 0.92rem;
-  flex-shrink: 0;
-}
-
-.user-chip .chip-count {
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
-
-.user-color-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding: 0 0.2rem;
-}
-
-.user-color-legend .legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-}
-
-.user-color-legend .legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 /* ---------- Tables ---------- */
@@ -326,7 +442,7 @@ thead th {
   background: var(--teal-100);
   text-align: left;
   padding: 0.65rem 0.9rem;
-  color: var(--teal-900);
+  color: var(--teal-900-text);
   font-weight: 600;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
@@ -338,7 +454,7 @@ thead th.sortable {
 }
 
 thead th.sortable:hover {
-  background: #C9E6DA;
+  background: var(--teal-100-hover);
 }
 
 thead th.sortable .sort-arrow {
@@ -377,13 +493,143 @@ tbody tr:hover { background: var(--paper); }
   flex-shrink: 0;
 }
 
+/* ---------- Hata listesi ---------- */
+
+.error-details {
+  margin-top: 0.6rem;
+}
+
+.error-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--danger);
+  padding: 0.2rem 0;
+}
+
+.error-details summary:hover { text-decoration: underline; }
+
+.error-list-wrapper {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.error-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  font-family: "Space Grotesk", monospace;
+}
+
+.error-list li {
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  display: flex;
+  gap: 0.6rem;
+}
+
+.error-list li:last-child { border-bottom: none; }
+
+.error-list .err-line {
+  color: var(--danger);
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 3.2em;
+}
+
+.error-list .err-reason {
+  color: var(--ink-soft);
+}
+
+/* ---------- Report export ---------- */
+
+.report-actions {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--teal-900-text);
+  font-family: "Inter", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover { background: var(--teal-100); border-color: var(--teal-500); }
+
+.btn.btn-primary {
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: #fff;
+}
+
+.btn.btn-primary:hover { background: var(--teal-500); }
+
 /* ---------- Charts ---------- */
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 720px) {
+  .chart-grid { grid-template-columns: 1fr; }
+}
 
 .chart-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 1.3rem;
+  padding: 1.2rem;
+}
+
+.chart-card-narrow {
+  max-width: 340px;
+  margin: 1rem auto 0;
+}
+
+/* Chart.js, maintainAspectRatio:false ile canvas'ı "en yakın konumlanmış
+   (position) ata ne kadar yükseklik veriyorsa o kadar" büyütür. Bu ata
+   sabit bir yükseklik ve position:relative vermezsek, canvas kendi
+   büyüklüğünü belirlemek için parent'a, parent da canvas'a bakar — sonsuz
+   bir büyüme döngüsü oluşur ve grafik sürekli uzayıp sayfayı aşağı iter.
+   Bu yüzden canvas'ı saran bir kutuya sabit yükseklik + relative veriyoruz;
+   canvas'a da width/height:100% ile bu kutuyu doldurmasını söylüyoruz. */
+.chart-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 220px;
+}
+
+.chart-canvas-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chart-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--teal-900-text);
+  margin: 0 0 0.9rem;
+  text-align: center;
 }
 
 /* ---------- Footer ---------- */

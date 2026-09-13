@@ -19,6 +19,20 @@
           <h1>Sayım Akışı</h1>
         </div>
       </div>
+      <div class="header-actions">
+        <button type="button" id="clear-btn" class="icon-btn clear-btn" aria-label="Verileri temizle">
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M4 6h12M8 6V4.5C8 3.7 8.7 3 9.5 3h1c.8 0 1.5.7 1.5 1.5V6M6 6l.6 10.2c.05.98.87 1.8 1.85 1.8h3c.98 0 1.8-.82 1.85-1.8L14 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Temizle
+        </button>
+        <button type="button" id="theme-toggle" class="icon-btn" aria-label="Karanlık/aydınlık temayı değiştir">
+          <svg id="theme-icon" width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M17 11.2A7 7 0 1 1 8.8 3 5.6 5.6 0 0 0 17 11.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+          <span id="theme-label">Karanlık</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -26,21 +40,36 @@
 
     <!-- Dosya Yükleme -->
     <section id="upload-section" class="upload-panel">
-      <div id="drop-zone" class="drop-zone">
-        <input type="file" id="file-input" accept=".txt" multiple aria-label="Sayım dosyası seç">
-        <div class="drop-zone-content">
-          <svg class="drop-icon" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-            <path d="M20 6V26M20 6L13 13M20 6L27 13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M8 26V30C8 31.1 8.9 32 10 32H30C31.1 32 32 31.1 32 30V26" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <p><strong>.txt</strong> dosyanızı buraya bırakın veya <span class="link-text">bilgisayardan seçin</span></p>
+      <div class="upload-row">
+        <div class="upload-row-main">
+          <div id="drop-zone" class="drop-zone">
+            <input type="file" id="file-input" accept=".txt" multiple aria-label="Sayım dosyası seç">
+            <div class="drop-zone-content">
+              <svg class="drop-icon" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                <path d="M20 6V26M20 6L13 13M20 6L27 13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 26V30C8 31.1 8.9 32 10 32H30C31.1 32 32 31.1 32 30V26" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <p><strong>.txt</strong> dosyanızı buraya bırakın veya <span class="link-text">bilgisayardan seçin</span></p>
+            </div>
+          </div>
         </div>
+        <aside id="file-list-panel" class="file-list-panel" hidden>
+          <h2 class="file-list-title">Yüklenen dosyalar</h2>
+          <ul id="file-list" class="file-list"></ul>
+        </aside>
       </div>
-      <p id="file-info" class="file-info"></p>
     </section>
 
     <!-- Durum Mesajı -->
     <section id="status-section" class="status-box" hidden></section>
+
+    <!-- Hatalı Satırlar -->
+    <details id="error-details" class="error-details" hidden>
+      <summary id="error-summary">Okunamayan satırları göster</summary>
+      <div class="error-list-wrapper">
+        <ul id="error-list" class="error-list"></ul>
+      </div>
+    </details>
 
     <!-- Sayaç Şeridi -->
     <section id="summary-section" class="counter-strip" hidden>
@@ -62,15 +91,12 @@
       </div>
     </section>
 
-    <p id="speed-note" class="speed-note" hidden></p>
-
     <!-- Kullanıcı Listesi -->
     <section id="users-section" class="analysis-block" hidden>
       <div class="block-heading">
         <h2>Kim sayım yaptı</h2>
         <p>Her kullanıcıya sabit bir renk atanır — bu renk aşağıdaki tüm grafiklerde aynı kullanıcıyı temsil eder</p>
       </div>
-      <div id="users-list" class="user-chip-list"></div>
 
       <div class="table-wrapper">
         <table id="user-comparison-table">
@@ -85,39 +111,53 @@
           <tbody id="user-comparison-body"></tbody>
         </table>
       </div>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3 class="chart-title">Okutma hızı karşılaştırması</h3>
+          <div class="chart-canvas-wrap">
+            <canvas id="user-speed-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3 class="chart-title">Okutma ve lokasyon sayısı</h3>
+          <div class="chart-canvas-wrap">
+            <canvas id="user-volume-chart"></canvas>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- Zaman Bazlı Lokasyon Akışı -->
-    <section id="timeline-section" class="analysis-block" hidden>
+    <!-- Lokasyon Detay Tablosu -->
+    <section id="locations-section" class="analysis-block" hidden>
       <div class="block-heading">
-        <h2>Zamana göre lokasyon akışı</h2>
-        <p>Hangi lokasyon, hangi sırayla ve ne zaman sayılmış</p>
+        <h2>Lokasyon detayları</h2>
+        <p>Her lokasyonun okutma sayısı, süresi, hızı ve baskın kullanıcısı</p>
       </div>
-      <div class="chart-card">
-        <canvas id="timeline-chart" height="110"></canvas>
+      <div class="table-wrapper">
+        <table id="location-table">
+          <thead>
+            <tr>
+              <th data-sort-key="locationCode" class="sortable">Lokasyon</th>
+              <th data-sort-key="userCode" class="sortable">Kullanıcı</th>
+              <th data-sort-key="count" class="sortable">Okutma</th>
+              <th data-sort-key="durationSec" class="sortable">Süre (sn)</th>
+              <th data-sort-key="itemsPerSecond" class="sortable">Ürün/sn</th>
+            </tr>
+          </thead>
+          <tbody id="location-table-body"></tbody>
+        </table>
       </div>
     </section>
 
-    <!-- Lokasyon Bazlı Hız -->
-    <section id="location-speed-section" class="analysis-block" hidden>
+    <!-- Rapor Dışa Aktarma -->
+    <section id="report-section" class="analysis-block" hidden>
       <div class="block-heading">
-        <h2>Lokasyon bazlı okutma hızı dağılımı</h2>
-        <p>Kaç lokasyon hangi hız aralığına düşmüş — renkler, o aralıktaki lokasyonları sayan kullanıcıları gösterir</p>
+        <h2>Rapor</h2>
+        <p>Bu sayıma ait tüm analizleri, yazılı yorumlarla birlikte tek bir sayfa halinde dışa aktarın</p>
       </div>
-      <div class="chart-card">
-        <canvas id="location-speed-chart" height="110"></canvas>
-      </div>
-      <div id="location-speed-legend" class="user-color-legend"></div>
-    </section>
-
-    <!-- Genel + Kullanıcı Bazlı Hız Trend Grafiği -->
-    <section id="speed-trend-section" class="analysis-block" hidden>
-      <div class="block-heading">
-        <h2>Okutma hızı eğrisi</h2>
-        <p>Kesikli çizgi genel ortalamayı, renkli çizgiler her kullanıcının kendi hızını gösterir</p>
-      </div>
-      <div class="chart-card">
-        <canvas id="speed-trend-chart" height="130"></canvas>
+      <div class="report-actions">
+        <button type="button" id="generate-report-btn" class="btn btn-primary">Analiz Raporu Oluştur</button>
       </div>
     </section>
 
@@ -128,12 +168,11 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="js/parser.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/analysis.js"></script>
   <script src="js/charts.js"></script>
+  <script src="js/report.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

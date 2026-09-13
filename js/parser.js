@@ -22,16 +22,18 @@
 const StockParser = (() => {
 
   // Alan pozisyonlarını burada tek noktadan yönetiyoruz.
-  // Gerçek veri örnekleri ile karşılaştırıp gerekirse index'leri güncelle.
+  // Baştaki 5 alan (barkod, sabit-1, lokasyon, kullanıcı, sabit-2) sabit
+  // index'lerle okunuyor. Tarih/saat/okutma-sırası ise SONDAN sayılıyor
+  // (total-1, total-2, total-3), çünkü 5. ve 6. alan arasında değişken
+  // sayıda boşluk/dolgu alanı görülebiliyor (örnek dosyalarda 8 veya 9 alan
+  // gözlemlendi). Sondan saymak bu farkı otomatik tolere eder. Gerçek veri
+  // örnekleri arttıkça bu index'ler gözden geçirilmeli.
   const FIELD_INDEX = {
     BARCODE: 0,
     CONSTANT_1: 1,
     LOCATION_CODE: 2,
     USER_CODE: 3,
     CONSTANT_2: 4,
-    // NOT: örnekte 5. alan (boşluk) ile 6. alan (okutma sırası) arasında
-    // belirsizlik var. Şimdilik "son 3 alan" tarih/saat/sıra üçlüsü olarak
-    // sondan sayılıyor, böylece baştaki olası boşluk alanları sorun çıkarmaz.
   };
 
   const MIN_FIELDS = 7; // en az bu kadar alan olmalı, yoksa satır geçersiz sayılır
@@ -81,6 +83,12 @@ const StockParser = (() => {
     if (!barcode) {
       return { valid: false, error: 'Barkod alanı boş', raw: rawLine, lineNumber };
     }
+    if (!locationCode) {
+      return { valid: false, error: 'Lokasyon kodu boş', raw: rawLine, lineNumber };
+    }
+    if (!userCode) {
+      return { valid: false, error: 'Kullanıcı kodu boş', raw: rawLine, lineNumber };
+    }
     if (!dateMatch) {
       return { valid: false, error: `Geçersiz tarih formatı: "${dateStr}"`, raw: rawLine, lineNumber };
     }
@@ -91,11 +99,34 @@ const StockParser = (() => {
     const [, dd, mm, yyyy] = dateMatch;
     const [, hh, min, ss] = timeMatch;
 
+    const ddNum = Number(dd), mmNum = Number(mm), yyyyNum = Number(yyyy);
+    const hhNum = Number(hh), minNum = Number(min), ssNum = Number(ss);
+
+    // Alan aralığı doğrulama: regex sadece "iki rakam" olduğunu garanti eder,
+    // "13. ay" veya "32. gün" gibi anlamsız değerleri yakalamaz. JS'nin Date
+    // constructor'ı bu tarz değerleri sessizce "taşırır" (örn. 31.02 -> 03.03),
+    // bu da veriyi sessizce bozar — bu yüzden burada açıkça reddediyoruz.
+    if (mmNum < 1 || mmNum > 12) {
+      return { valid: false, error: `Geçersiz ay değeri: "${mm}"`, raw: rawLine, lineNumber };
+    }
+    if (ddNum < 1 || ddNum > 31) {
+      return { valid: false, error: `Geçersiz gün değeri: "${dd}"`, raw: rawLine, lineNumber };
+    }
+    if (hhNum > 23) {
+      return { valid: false, error: `Geçersiz saat değeri: "${hh}"`, raw: rawLine, lineNumber };
+    }
+    if (minNum > 59 || ssNum > 59) {
+      return { valid: false, error: `Geçersiz dakika/saniye değeri: "${min}:${ss}"`, raw: rawLine, lineNumber };
+    }
+
     // JS Date nesnesi oluştur (analiz/sıralama için pratik olacak)
-    const timestamp = new Date(
-      Number(yyyy), Number(mm) - 1, Number(dd),
-      Number(hh), Number(min), Number(ss)
-    );
+    const timestamp = new Date(yyyyNum, mmNum - 1, ddNum, hhNum, minNum, ssNum);
+
+    // Date constructor taşırdıysa (örn. 31 Nisan -> 1 Mayıs) gün geri okunan
+    // değer farklı çıkar; bu durumda satırı geçersiz say, sessizce kabul etme.
+    if (timestamp.getDate() !== ddNum || timestamp.getMonth() !== mmNum - 1) {
+      return { valid: false, error: `Takvimde olmayan tarih: "${dateStr}"`, raw: rawLine, lineNumber };
+    }
 
     const record = {
       barcode,
