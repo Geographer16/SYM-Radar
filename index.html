@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sayım Akışı — Stok Sayım Analiz Aracı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>Sayım Akışı</h1>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Dosya Yükleme -->
+    <section id="upload-section" class="upload-panel">
+      <div id="drop-zone" class="drop-zone">
+        <input type="file" id="file-input" accept=".txt" multiple aria-label="Sayım dosyası seç">
+        <div class="drop-zone-content">
+          <svg class="drop-icon" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <path d="M20 6V26M20 6L13 13M20 6L27 13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 26V30C8 31.1 8.9 32 10 32H30C31.1 32 32 31.1 32 30V26" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <p><strong>.txt</strong> dosyanızı buraya bırakın veya <span class="link-text">bilgisayardan seçin</span></p>
+        </div>
+      </div>
+      <p id="file-info" class="file-info"></p>
+    </section>
+
+    <!-- Durum Mesajı -->
+    <section id="status-section" class="status-box" hidden></section>
+
+    <!-- Sayaç Şeridi -->
+    <section id="summary-section" class="counter-strip" hidden>
+      <div class="counter-cell">
+        <span class="counter-value" id="stat-locations">0</span>
+        <span class="counter-label">Sayılan Lokasyon</span>
+      </div>
+      <div class="counter-cell">
+        <span class="counter-value" id="stat-users">0</span>
+        <span class="counter-label">Sayımı Yapan Kullanıcı</span>
+      </div>
+      <div class="counter-cell">
+        <span class="counter-value" id="stat-valid-rows">0</span>
+        <span class="counter-label">Geçerli Okutma</span>
+      </div>
+      <div class="counter-cell">
+        <span class="counter-value" id="stat-avg-speed">0</span>
+        <span class="counter-label">Ürün Başına Saniye</span>
+      </div>
+    </section>
+
+    <p id="speed-note" class="speed-note" hidden></p>
+
+    <!-- Kullanıcı Listesi -->
+    <section id="users-section" class="analysis-block" hidden>
+      <div class="block-heading">
+        <h2>Kim sayım yaptı</h2>
+        <p>Her kullanıcıya sabit bir renk atanır — bu renk aşağıdaki tüm grafiklerde aynı kullanıcıyı temsil eder</p>
+      </div>
+      <div id="users-list" class="user-chip-list"></div>
+
+      <div class="table-wrapper">
+        <table id="user-comparison-table">
+          <thead>
+            <tr>
+              <th data-sort-key="userCode" class="sortable">Kullanıcı</th>
+              <th data-sort-key="recordCount" class="sortable">Okutma</th>
+              <th data-sort-key="locationCount" class="sortable">Lokasyon</th>
+              <th data-sort-key="secondsPerItem" class="sortable">Sn / Ürün</th>
+            </tr>
+          </thead>
+          <tbody id="user-comparison-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Zaman Bazlı Lokasyon Akışı -->
+    <section id="timeline-section" class="analysis-block" hidden>
+      <div class="block-heading">
+        <h2>Zamana göre lokasyon akışı</h2>
+        <p>Hangi lokasyon, hangi sırayla ve ne zaman sayılmış</p>
+      </div>
+      <div class="chart-card">
+        <canvas id="timeline-chart" height="110"></canvas>
+      </div>
+    </section>
+
+    <!-- Lokasyon Bazlı Hız -->
+    <section id="location-speed-section" class="analysis-block" hidden>
+      <div class="block-heading">
+        <h2>Lokasyon bazlı okutma hızı dağılımı</h2>
+        <p>Kaç lokasyon hangi hız aralığına düşmüş — renkler, o aralıktaki lokasyonları sayan kullanıcıları gösterir</p>
+      </div>
+      <div class="chart-card">
+        <canvas id="location-speed-chart" height="110"></canvas>
+      </div>
+      <div id="location-speed-legend" class="user-color-legend"></div>
+    </section>
+
+    <!-- Genel + Kullanıcı Bazlı Hız Trend Grafiği -->
+    <section id="speed-trend-section" class="analysis-block" hidden>
+      <div class="block-heading">
+        <h2>Okutma hızı eğrisi</h2>
+        <p>Kesikli çizgi genel ortalamayı, renkli çizgiler her kullanıcının kendi hızını gösterir</p>
+      </div>
+      <div class="chart-card">
+        <canvas id="speed-trend-chart" height="130"></canvas>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>Veriniz tarayıcınızdan çıkmaz · FileReader API · Vanilla JS</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/analysis.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
