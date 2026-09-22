@@ -75,6 +75,9 @@ const Report = (() => {
           <td>${fmt(u.recordCount)}</td>
           <td>${fmt(u.locationCount)}</td>
           <td>${secPerItem}</td>
+          <td>${Analysis.formatClockTime(u.startTime)}</td>
+          <td>${Analysis.formatClockTime(u.endTime)}</td>
+          <td>${Analysis.formatDuration(u.totalDurationSec)}</td>
         </tr>
       `;
     }).join('');
@@ -83,7 +86,7 @@ const Report = (() => {
       <section class="r-section">
         <h2>Kullanıcı Karşılaştırması</h2>
         <table class="r-table">
-          <thead><tr><th>Kullanıcı</th><th>Okutma</th><th>Lokasyon</th><th>Sn / Ürün</th></tr></thead>
+          <thead><tr><th>Kullanıcı</th><th>Okutma</th><th>Lokasyon</th><th>Sn / Ürün</th><th>Başlangıç</th><th>Bitiş</th><th>Toplam Süre</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </section>

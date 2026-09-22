@@ -168,17 +168,50 @@ const Analysis = (() => {
     const grouped = groupByUser(records);
     const stats = [];
     grouped.forEach((list, userCode) => {
+      // list zaten groupBy içinde timestamp'e göre sıralı geliyor (bkz. groupBy),
+      // bu yüzden ilk/son eleman doğrudan başlangıç/bitiş okutmasını verir.
       const locationCount = new Set(list.map(r => r.locationCode)).size;
       const speed = computeOverallSpeed(list);
+      const startTime = list[0].timestamp;
+      const endTime = list[list.length - 1].timestamp;
+      const totalDurationSec = (endTime - startTime) / 1000;
       stats.push({
         userCode,
         color: getUserColor(userCode),
         recordCount: list.length,
         locationCount,
         itemsPerSecond: speed.itemsPerSecond,
+        startTime,
+        endTime,
+        totalDurationSec,
       });
     });
     return stats.sort((a, b) => b.recordCount - a.recordCount);
+  }
+
+  /**
+   * Saniye cinsinden bir süreyi okunabilir kısa bir string'e çevirir.
+   * Örn: 3725 -> "1s 2d", 125 -> "2d 5sn", 40 -> "40sn"
+   */
+  function formatDuration(totalSeconds) {
+    if (totalSeconds === null || totalSeconds === undefined || Number.isNaN(totalSeconds)) return '—';
+    const s = Math.max(0, Math.round(totalSeconds));
+    const hours = Math.floor(s / 3600);
+    const minutes = Math.floor((s % 3600) / 60);
+    const seconds = s % 60;
+
+    if (hours > 0) return `${hours}s ${minutes}d`;
+    if (minutes > 0) return `${minutes}d ${seconds}sn`;
+    return `${seconds}sn`;
+  }
+
+  /** Date nesnesini "SS:DD:SS" formatında saat string'ine çevirir. */
+  function formatClockTime(date) {
+    if (!date) return '—';
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    const ss = String(date.getSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
   }
 
   /**
@@ -294,6 +327,8 @@ const Analysis = (() => {
     detectAnomalies,
     runAllAnalyses,
     withAnomalies,
+    formatDuration,
+    formatClockTime,
   };
 
 })();

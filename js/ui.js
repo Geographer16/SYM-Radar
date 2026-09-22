@@ -240,6 +240,10 @@ const UI = (() => {
           if (vb === null) return -1;
         }
 
+        // startTime/endTime birer Date nesnesi — karşılaştırma için sayıya çevir
+        if (va instanceof Date) va = va.getTime();
+        if (vb instanceof Date) vb = vb.getTime();
+
         if (typeof va === 'string') {
           return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
         }
@@ -257,6 +261,9 @@ const UI = (() => {
           <td>${u.recordCount.toLocaleString('tr-TR')}</td>
           <td>${u.locationCount.toLocaleString('tr-TR')}</td>
           <td>${u.secondsPerItem !== null ? u.secondsPerItem.toFixed(2) : '—'}</td>
+          <td>${Analysis.formatClockTime(u.startTime)}</td>
+          <td>${Analysis.formatClockTime(u.endTime)}</td>
+          <td>${Analysis.formatDuration(u.totalDurationSec)}</td>
         </tr>
       `).join('');
     }
@@ -337,7 +344,7 @@ const UI = (() => {
           </td>
           <td>${escapeHtml(l.userCode)}</td>
           <td>${l.count.toLocaleString('tr-TR')}</td>
-          <td>${l.durationSec ? l.durationSec.toFixed(0) : '—'}</td>
+          <td>${l.durationSec ? Analysis.formatDuration(l.durationSec) : '—'}</td>
           <td>${l.itemsPerSecond !== null ? l.itemsPerSecond.toFixed(2) : '—'}</td>
         </tr>
       `).join('');
