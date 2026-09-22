@@ -62,7 +62,7 @@ const Charts = (() => {
       data: {
         labels: sorted.map(u => u.userCode),
         datasets: [{
-          label: 'Ürün / saniye',
+          label: 'Saniyede okutulan ürün',
           data: sorted.map(u => Number(u.itemsPerSecond.toFixed(2))),
           backgroundColor: sorted.map(u => u.color),
           borderRadius: 4,
@@ -88,7 +88,7 @@ const Charts = (() => {
         scales: {
           x: {
             beginAtZero: true,
-            title: { display: true, text: 'Ürün / saniye', font: baseFont, color: inkSoft },
+            title: { display: true, text: 'Saniyede okutulan ürün', font: baseFont, color: inkSoft },
             grid: { color: grid },
             ticks: { font: baseFont, color: inkSoft },
           },

@@ -86,7 +86,7 @@ const Report = (() => {
       <section class="r-section">
         <h2>Kullanıcı Karşılaştırması</h2>
         <table class="r-table">
-          <thead><tr><th>Kullanıcı</th><th>Okutma</th><th>Lokasyon</th><th>Sn / Ürün</th><th>Başlangıç</th><th>Bitiş</th><th>Toplam Süre</th></tr></thead>
+          <thead><tr><th>Kullanıcı</th><th>Okutma</th><th>Lokasyon</th><th>Ürün Başına Saniye</th><th>Başlangıç</th><th>Bitiş</th><th>Toplam Süre</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </section>
@@ -181,7 +181,7 @@ const Report = (() => {
         <div class="r-summary-cell"><span class="r-summary-value">${fmt(results.locationCount)}</span><span class="r-summary-label">Sayılan Lokasyon</span></div>
         <div class="r-summary-cell"><span class="r-summary-value">${fmt(results.users.length)}</span><span class="r-summary-label">Kullanıcı</span></div>
         <div class="r-summary-cell"><span class="r-summary-value">${fmt(meta.validCount)}</span><span class="r-summary-label">Geçerli Okutma</span></div>
-        <div class="r-summary-cell"><span class="r-summary-value">${results.overallSpeed.itemsPerSecond > 0 ? fmt(1 / results.overallSpeed.itemsPerSecond, 2) : '—'}</span><span class="r-summary-label">Ürün Başına Saniye</span></div>
+        <div class="r-summary-cell"><span class="r-summary-value">${results.overallSpeed.itemsPerSecond > 0 ? fmt(1 / results.overallSpeed.itemsPerSecond, 2) : '—'}</span><span class="r-summary-label">Ürün Başına Ortalama Saniye</span></div>
       </div>
       ${buildNarrative(results, meta)}
     </section>
